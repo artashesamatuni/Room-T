@@ -1,0 +1,78 @@
+#ifndef _THERMOSTAT_TFT_H
+#define _THERMOSTAT_TFT_H
+
+#define _M_HOME     0
+#define _M_TIME     1
+#define _M_MQTT     2
+#define _M_TEMP     3
+#define _M_WEB      4
+#define _M_NET      5
+#define _M_SYS      6
+#define _M_STAT     7
+#define _M_CLOCK    8
+
+#define _DAY_WEEKDAY  0
+#define _DAY_WEEKEND  1
+
+#define _BTN_FREE     0
+#define _BTN_SEL      1
+#define _BTN_PRESS    3
+#define _BTN_DIS      4
+#define _BTN_HIDE     5
+
+
+
+
+#include <Arduino.h>
+#include <Adafruit_GFX.h>    // Core graphics library
+#include "Adafruit_ST7735.h" // Hardware-specific library
+/*
+#include <Fonts/FreeSans18pt7b.h>
+#include <Fonts/FreeSans9pt7b.h>
+#include "fonts/reg10pt7b.h"
+#include "fonts/reg9pt7b.h"
+#include "fonts/reg7pt7b.h"
+#include "fonts/TomThumb.h"
+*/
+
+
+extern boolean screen_update;
+
+extern uint8_t c_hh;
+extern uint8_t c_mm;
+extern uint8_t c_dw;
+extern float c_t;
+extern uint8_t c_sp;
+
+void tft_init();
+void tft_clean();
+
+uint8_t menu_scan();
+void tft_draw_menu();
+void tft_draw_textbox(String text, String label, uint8_t n, uint8_t x, uint8_t y);
+bool tft_draw_checkbox(bool value,uint8_t x, uint8_t y);
+void tft_progres(uint8_t value, String unit, uint8_t t_size, uint8_t x, uint8_t y);
+void tft_draw_button(int16_t x, int16_t y, int16_t w, int16_t h,String text, uint16_t color,uint8_t state);
+void tft_print_TD();
+void tft_print_Clock(uint8_t x, uint8_t y);
+
+
+void tft_wifi_ap(uint8_t n, String text);
+void tft_wifi_sta(uint8_t n, String text);
+
+void tftConsole(String tag, String message, bool init=false);
+
+void tft_print(String text);
+void tft_draw_frame();
+void tft_draw_scale(uint8_t a, uint8_t b);
+void tft_show_clock(uint8_t x, uint8_t y);
+void tft_show_sha(uint8_t *data);
+void tft_loop(uint8_t screen);
+void tft_draw_shed();
+void tft_draw_eco(uint8_t sh);
+void tft_draw_auto();
+
+extern void tft_update();
+extern void tft_show_status();
+#endif // _THERMOSTAT_TFT_H
+

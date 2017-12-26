@@ -1,0 +1,700 @@
+#include <FS.h>                       // SPIFFS file-system: store web server html, CSS etc.
+#include <ArduinoJson.h>
+#include "esp.h"
+#include "config.h"
+#include "wifi.h"
+#include "ntp.h"
+#include "web_server.h"
+#include "t.h"
+#include "images.h"
+#include "keypad.h"
+#include "tft.h"
+
+
+
+boolean screen_update;
+uint8_t c_hh;
+uint8_t c_mm;
+uint8_t c_dw;
+float c_t;
+uint8_t c_sp;
+
+float ta, tb, tc;
+
+
+unsigned long eco_loop_timer = -1;
+unsigned long auto_loop_timer = -1;
+unsigned long td_timer = 60000;
+
+uint8_t auto_loop = 0;
+
+unsigned long sh_loop_timer = -1;
+uint8_t oldmin;
+boolean draw = false;
+
+unsigned long loop_timer = -1;
+
+uint8_t shed_pos = 0; //shedule position
+
+String mnt[] = {"JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"};
+String dow[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+
+struct btn {
+  uint8_t x;
+  uint8_t y;
+  uint8_t w;
+  uint8_t h;
+  String text;
+  uint16_t color;
+  uint8_t state;
+};
+
+btn sys[] = {
+  {10, 50, 108, 20, "Restart", _GREEN, _BTN_FREE},
+  {10, 75, 108, 20, "Reset", _RED, _BTN_DIS},
+  {10, 100, 108, 20, "Update", _GREEN, _BTN_SEL},
+  {10, 125, 108, 20, "Check for Update", _GREEN, _BTN_PRESS}
+};
+
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS,  TFT_DC, TFT_RST);
+
+void tft_update()
+{
+  draw = true;
+}
+
+void tft_init()
+{
+  tft.initR(INITR_BLACKTAB);
+  tft_clean();
+  tft.setTextWrap(false);
+  tft.setRotation(2);
+  tft.fillScreen(_WHITE);
+  console("TFT", "OK");
+  tft.console("TFT", "OK", true);
+}
+
+void tft_clean()
+{
+  tft.fillScreen(_WHITE);
+  screen_update = true;
+}
+
+void tft_print(String text)
+{
+  tft.setTextSize(1);
+  tft.setFont(&TomThumb);
+  tft.setTextColor(_YELLOW, _BLACK);
+  tft.print(text);
+  tft.setFont();
+}
+void tft_show_sp(uint8_t x, uint8_t y, uint8_t tmp, uint16_t color, uint16_t bg) {
+  if (c_sp != tmp)
+  {
+    c_sp = tmp;
+    String tmpStr = "";
+    tft.setTextColor(color);
+    tft.setCursor(x, y + 20);
+    tft.setFont(&FreeSans18pt7b);
+    tft.fillRect(x, y, 60, 30, bg);
+    tmpStr += (uint8_t)tmp;
+    tft.print(tmpStr);
+    tft.setCursor(x + 1 + tmpStr.length() * 18, y + 26);
+    tft.setFont(&FreeSans9pt7b);
+    tft.setCursor(x + 10 + tmpStr.length() * 18, y + 11);
+    tft.print("c");
+    tft.drawCircle(x + 6 + tmpStr.length() * 18, y + 5, 3, color);
+    tft.drawCircle(x + 6 + tmpStr.length() * 18, y + 5, 2, color);
+    tft.setFont();
+  }
+}
+
+
+
+void tft_show_sha(uint8_t *data) {
+  uint8_t sp_min, sp_max;
+  DateTime now = rtc.now();
+  if ((millis() - eco_loop_timer) > 1000)
+  {
+
+    for (int i = 0; i < 24; i++)
+    {
+      uint8_t tval;
+      tval = map(data[i], 5, 30, 0, 66);
+      if (i == now.hour())
+        tft.fillRect(15 + i * 6, 104 - tval, 3, tval, _GREEN);
+      else
+        tft.fillRect(15 + i * 6, 104 - tval, 3, tval, _LGRAY);
+    }
+    eco_loop_timer = millis();
+  }
+}
+
+void tft_draw_frame() {
+  tft.fillScreen(_WHITE);
+  tft.fillRect(0, 0, 127, 18, _BLUE);
+  tft.fillRect(0, 20, 127, 18, _GREEN);
+}
+
+void tft_draw_scale(uint8_t a, uint8_t b) {
+  tft.setTextSize(1);
+  tft.setTextColor(_GREEN, _BLACK);
+  a += 5;
+  for (uint8_t i = a; i < b; i += 5)
+  {
+    tft.setCursor(4, map(i, 0, b, 135, 31));
+    tft.print(i);
+  }
+  for (uint8_t i = 5; i < b; i += 5)
+    tft.drawFastHLine(16, map(i, 0, b, 137, 35), 5, _YELLOW);
+}
+
+void tft_draw_r_text(String text, uint8_t len, uint8_t x, uint8_t y) {
+  uint8_t t_size;
+  String tmpStr;
+  t_size = text.length();
+  tft.setTextSize(1);
+  tft.setTextColor(_BLACK, _WHITE);
+  tft.setCursor(x, y);
+  tmpStr = text.substring(0, len);
+  tft.print(tmpStr);
+}
+bool tft_draw_checkbox(bool value, uint8_t x, uint8_t y) {
+  tft.drawRect(x, y, 8, 8, _GRAY);
+  if (value)
+    tft.fillRect(x + 2, y + 2, 4, 4, _GREEN);
+  return value;
+}
+/*
+  void tft_draw_bar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y) {
+  uint8_t b_size;
+  int16_t tmpVal;
+  String tmpStr;
+  tmpVal = value;
+  if (tmpVal < 0)
+    tmpVal = 100 + tmpVal;
+  b_size = t_size * tmpVal / range;
+  if (b_size > t_size)
+    b_size = t_size;
+  tft.fillRect(x, y, t_size, 9, _GRAY);
+  tft.fillRect(x, y, b_size, 9, _BLUE);
+  tft.setTextSize(1);
+  tft.setTextColor(_WHITE);
+  tmpStr = value;
+  tmpStr += unit;
+  tft.setCursor(x + (t_size - tmpStr.length() * 4) / 2, y + 1);
+  tft.setFont(&TomThumb);
+  tft.print(tmpStr);
+  //  tft.print(unit);
+  tft.setFont();
+  }
+*/
+void tft_draw_button(int16_t x, int16_t y, int16_t w, int16_t h, String text, uint16_t color, uint8_t state) {
+  uint8_t tsize = text.length();
+  if (w <= tsize)
+    w = tsize + 10;
+  if (h < 14)
+    h = 14;
+  uint8_t x_base = x + (w - tsize * 6) / 2;
+  uint8_t y_base = y + (h - 8) / 2;
+  if (state == _BTN_DIS)
+    color = _GRAY;
+  tft.fillRect(x, y, w, h, color);
+  tft.setCursor(x_base, y_base);
+  tft.setTextColor(_WHITE, color);
+  tft.print(text);
+  if (state == _BTN_SEL)
+    tft.drawRect(x + 2, y + 2, w - 4, h - 4, _WHITE);
+}
+
+void tft_print_Clock(uint8_t x, uint8_t y)
+{
+  DateTime now = rtc.now();
+  tft.setTextColor(_WHITE, _BLACK);
+  tft.setTextSize(1);
+  String ts = "";
+  if (c_hh != now.hour())
+  {
+    c_hh = now.hour();
+    ts = "";
+    if (c_hh < 10)
+      ts = "0";
+    ts += c_hh;
+    tft.setCursor(x + 1, y + 20);
+    tft.fillRect(x, y, 40, 27, _BLACK);
+    tft.setFont(&FreeSans18pt7b);
+    tft.print(ts);
+    tft.setFont();
+  }
+  if (c_mm != now.minute())
+  {
+    c_mm = now.minute();
+    ts = "";
+    if (c_mm < 10)
+      ts = "0";
+    ts += c_mm;
+    tft.setCursor(x + 51, y + 20);
+    tft.fillRect(x + 50, y, 40, 27, _BLACK);
+    tft.setFont(&FreeSans18pt7b);
+    tft.print(ts);
+    tft.setFont();
+  }
+  if (now.second() % 2)
+  {
+    tft.setCursor(x + 40, y + 17);
+    tft.setFont(&FreeSans18pt7b);
+    tft.print(":");
+    tft.setFont();
+  }
+  else
+    tft.fillRect(x + 40, y, 10, 27, _BLACK);
+  if (c_dw != now.day())
+  {
+    c_dw = now.day();
+    ts = dow[now.dayOfTheWeek()];
+    ts += ", ";
+    ts += mnt[now.month() - 1];
+    ts += " ";
+    ts += now.day();
+    tft.setCursor(x + 45 - ts.length() * 3, y + 35);
+    tft.fillRect(x + 45 - ts.length() * 3, y + 35, 30, 8, _RED);
+    tft.setTextSize(1);
+    tft.print(ts);
+  }
+
+}
+
+
+void tft_print_TD() {
+  DateTime now = rtc.now();
+  tft.fillRect(55, 1, 73, 17, _BLUE);
+  tft.setTextColor(_WHITE, _BLUE);
+  tft.setFont(&FreeSans9pt7b);
+
+  uint8_t tVal = now.hour();
+  String ts = "";
+  if (tVal > 12)
+  {
+    tVal = tVal - 12;
+    ts = "pm";
+  }
+  else
+    ts = "am";
+
+  if (tVal < 10)
+    tft.setCursor(63, 15);
+  else
+    tft.setCursor(50, 15);
+  tft.print(dow[now.dayOfTheWeek()]);
+  if (tVal < 10)
+    tft.setCursor(93, 15);
+  else
+    tft.setCursor(85, 15);
+  tft.print(tVal);
+  tft.setFont(&TomThumb);
+  tft.setCursor(105, 7);
+  tVal = now.minute();
+  if (tVal < 10)
+    tft.print("0");
+  tft.print(tVal);
+  tft.print(" ");
+  tft.print(ts);
+  tft.drawFastHLine(105, 9, 21, _WHITE);
+  tft.setCursor(105, 16);
+  tft.print(mnt[now.month() - 1]);
+  tft.print(" ");
+  tVal = now.day();
+  if (tVal < 10)
+    tft.print("0");
+  tft.print(tVal);
+  tft.setFont();
+  td_timer = millis();
+}
+uint8_t menu_scan() {
+  if (keystatus == _KEY_OK)
+  {
+
+    if (!menu_open)
+    {
+      menu_open = true;
+      menu_pos = 0;
+      draw = true;
+    }
+    else
+    {
+      //     if (menu_pos == 0)
+      //    {
+      menu_open = false;
+      draw = true;
+      scr_pos = menu_pos;
+      //    }
+
+    }
+    return menu_pos;
+  }
+  if (keystatus == _KEY_LEFT)
+  {
+    draw = true;
+    if (menu_pos > 0)
+      menu_pos--;
+    else
+      menu_pos = 7;
+    return menu_pos;
+  }
+  if (keystatus == _KEY_RIGHT)
+  {
+    draw = true;
+    if (menu_pos < 7)
+      menu_pos++;
+    else
+      menu_pos = 0;
+    return menu_pos;
+  }
+  draw = false;
+  return menu_pos;
+}
+//-----------------------------------------------------------------------------------------------------------------
+void tft_draw_menu() {
+  String m_item[] = {"Home", "Time", "MQTT", "Thermostat", "Access", "Network", "System", "Status"};
+  bool dis = false;
+  if (draw)
+  {
+    if (menu_open)
+    {
+      tft.fillRect(0, 0, 128, 160, _GREEN);
+      tft.setFont(&FreeSans9pt7b);
+      for (uint8_t i = 0; i < 8; i++)
+      {
+        if (i == menu_pos)
+        {
+          tft.setTextColor(_BLACK, _GRAY);
+          tft.fillRect(0, i * 20, 128, 20, _GRAY);
+        }
+        else
+        {
+          tft.setTextColor(_WHITE, _GREEN);
+        }
+        tft.setCursor(2, 15 + i * 20);
+        tft.print(m_item[i]);
+      }
+      tft.setFont();
+      draw = false;
+    }
+  }
+}
+//-----------------------------------------------------------------------------------------------------------------
+void tft_loop(uint8_t screen) {
+  switch (screen) {
+    case  _M_HOME:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_BLACK);
+          draw = false;
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          if (c_t != ct)
+          {
+            tft.showCT(c_t, 5, 100,  _WHITE, _BLACK);
+            c_t = ct;
+          }
+
+
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_TIME:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          char *str = "NTP Server";
+          tft.drawWindow(str);
+          tft.setCursor(5, 70);
+          tft.print("IP:");
+          tft.setCursor(5, 90);
+          tft.print("TZ:");
+          draw = false;
+        }
+
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          //  tft_print_TD();
+          tft.drawIPbox(ntp_ip, 30, 70);
+          tft.drawNumbox(ntp_tz, 30, 15, 90);
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_MQTT:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          //          tft.drawWindow("MQTT Settings");
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          tft.drawTextbox(mqtt_server, "Server*:", 20, 2, 41);
+          tft.drawTextbox(mqtt_topic, "Base-topic*:", 20, 2, 64);
+          tft.drawTextbox(mqtt_feed_prefix, "Feed-name prefix:", 20, 2, 87);
+          tft.drawTextbox(mqtt_user, "Username:", 20, 2, 110);
+          tft.drawTextbox(mqtt_pass, "Password:", 20, 2, 133);
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_TEMP:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_WHITE);
+          tft.fillRect(0, 0, 128, 20, _BLUE);
+          tft.fillRect(0, 20, 128, 20, _GREEN);
+          tft.fillRect(2, 5, 13, 2, _WHITE);
+          tft.fillRect(2, 9, 13, 2, _WHITE);
+          tft.fillRect(2, 13, 13, 2, _WHITE);
+          tft.setTextSize(1);
+          tft.setTextColor(_WHITE, _GREEN);
+          tft.setFont(&FreeSans9pt7b);
+          tft.setCursor(2, 34);
+          tft.print("Temp. Settings");
+          tft.setFont();
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          tft_print_TD();
+          tft.setTextSize(1);
+          tft.drawTextbox(String(sp) + "C", "Setpoint:", 3, 2, 40);
+          tft.drawBar(sp, "C", 30, 60, 62, 50);
+          tft_draw_eco(_DAY_WEEKDAY);
+          tft_draw_eco(_DAY_WEEKEND);
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_WEB:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_WHITE);
+          tft.fillRect(0, 0, 128, 20, _BLUE);
+          tft.fillRect(0, 20, 128, 20, _GREEN);
+          tft.fillRect(2, 5, 13, 2, _WHITE);
+          tft.fillRect(2, 9, 13, 2, _WHITE);
+          tft.fillRect(2, 13, 13, 2, _WHITE);
+          tft.setTextSize(1);
+          tft.setTextColor(_WHITE, _GREEN);
+          tft.setFont(&FreeSans9pt7b);
+          tft.setCursor(2, 34);
+          tft.print("WEB Settings");
+          tft.setFont();
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          tft_print_TD();
+          tft.drawTextbox(www_username, "User:", 20, 2, 40);
+          tft.drawTextbox(www_password, "Password:", 20, 2, 63);
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_NET:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          //          tft.drawWindow("WiFi");
+          if (wifi_mode == WIFI_MODE_AP_STA_RETRY || wifi_mode == WIFI_MODE_AP_ONLY)
+          {
+            uint8_t n = WiFi.scanNetworks();
+            for (uint8_t i = 0; i < 9; i++)
+            {
+              //   WiFi.encryptionType(i)
+              tft_draw_checkbox(false, 2, 41 + i * 10);
+              tft.setTextColor(_WHITE, _BLACK);
+              tft_draw_r_text(WiFi.SSID(i), 8, 12, 42 + i * 10);
+              tft.drawBar(WiFi.RSSI(i), "dBm", 100, 57, 70, 42 + i * 10);
+            }
+            tft.drawTextbox(www_username, "Passkey:", 20, 2, 135);
+          }
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          if (wifi_mode == WIFI_MODE_STA)
+          {
+            tft.setTextColor(_WHITE, _BLACK);
+            tft.setCursor(2, 51);
+            tft.print(esid);
+            tft.drawBar(WiFi.RSSI(), "dBm", 100, 60, 62, 50);
+          }
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_SYS:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_WHITE);
+          tft.fillRect(0, 0, 128, 20, _BLUE);
+          tft.fillRect(0, 20, 128, 20, _GREEN);
+          tft.fillRect(2, 5, 13, 2, _WHITE);
+          tft.fillRect(2, 9, 13, 2, _WHITE);
+          tft.fillRect(2, 13, 13, 2, _WHITE);
+          tft.setTextColor(_WHITE, _GREEN);
+          tft.setFont(&FreeSans9pt7b);
+          tft.setCursor(2, 34);
+          tft.print("System");
+          tft.setFont();
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          tft_print_TD();
+          for (uint8_t i = 0; i < 4; i++)
+          {
+            tft_draw_button(sys[i].x, sys[i].y, sys[i].w, sys[i].h, sys[i].text, sys[i].color, sys[i].state);
+          }
+
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_STAT:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_WHITE);
+          tft.fillRect(0, 0, 128, 20, _BLUE);
+          tft.fillRect(0, 20, 128, 20, _GREEN);
+          tft.fillRect(0, 40, 128, 65, _BLACK);
+          tft.fillRect(0, 105, 128, 55, _GREEN);
+          tft.drawFastHLine(3, 101, 122, _BLUE);
+          tft.drawFastVLine(3, 42, 59, _BLUE);
+          tft.fillRect(2, 5, 13, 2, _WHITE);
+          tft.fillRect(2, 9, 13, 2, _WHITE);
+          tft.fillRect(2, 13, 13, 2, _WHITE);
+          tft.setTextColor(_WHITE, _GREEN);
+          tft.setFont(&FreeSans9pt7b);
+          tft.setCursor(2, 34);
+          tft.print("Status");
+          tft.setFont();
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+
+          tft_draw_auto();
+
+
+          // tft.drawBitmap(60,110,wifi_icon, 16, 16, _WHITE);
+          loop_timer = millis();
+        }
+      }
+      break;
+    case  _M_CLOCK:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          tft.fillScreen(_BLACK);
+          draw = false;
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          tft_print_Clock(20, 50);
+          //    tft_show_ct(5, 100, ct, _WHITE, _BLACK);
+          //    tft_show_sp(5, 130, sp, _WHITE, _BLACK);
+
+
+          // tft.drawBitmap(60,110,wifi_icon, 16, 16, _WHITE);
+          loop_timer = millis();
+        }
+      }
+      break;
+    default:
+      break;
+  }
+  menu_scan();
+  tft_draw_menu();
+
+}
+
+void tft_draw_shed() {
+  uint8_t tval;
+  String text;
+  //  tft.fillRect(15 + shed_pos * 6, 39, 3, 65, _BLACK);
+  tft.setTextColor(_GREEN, _BLUE);
+  tft.setTextSize(2);
+  //  text = a[shed_pos];
+  text += "C";
+  tft.setCursor(158 - (text.length() * 12), 21);
+  tft.print(text);
+  for (int i = 0; i < 24; i++)
+  {
+    /*
+      if (i==shed_pos)
+          tval = map(a[i], 5, 30, 0, 65);
+          else
+          tval = map(a[i], 5, 30, 0, 65);
+    */
+    if (i == shed_pos)
+    {
+      tft.fillRect(15 + i * 6, 39, 3, 65 - tval, _BLACK);
+      tft.fillRect(15 + i * 6, 104 - tval, 3, tval, _GREEN);
+    }
+    else
+    {
+      tft.fillRect(15 + i * 6, 39, 3, 65 - tval, _BLACK);
+      tft.fillRect(15 + i * 6, 104 - tval, 3, tval, _LGRAY);
+    }
+  }
+}
+
+
+void lineTime(float a, float b) {
+  ta = a / 2359 * 128;
+  tb = (b - a) / 2359 * 128;
+  tc = (2359 - b) / 2359 * 128;
+}
+
+void tft_draw_eco(uint8_t sh) {
+  uint8_t temp;
+  String tmpStr;
+
+  SPIFFS.begin();
+  File configFile = SPIFFS.open("/schedule.json", "r");
+  if (!configFile) {
+    console("Config File", "ERR");
+    return;
+  }
+  size_t size = configFile.size();
+  std::unique_ptr<char[]> buf(new char[size]);
+  configFile.readBytes(buf.get(), size);
+  configFile.close();
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject(buf.get());
+  uint8_t n = root["n"];
+  for (uint8_t i = 0; i < n; i++)
+  {
+    sha[i] = root["sp"][i];
+    schedule_time[i] = root["sp_time"][i];
+  }
+  schedule_time[n + 1] = 2359;
+  DateTime now = rtc.now();
+  tft.setTextColor(_BLACK, _WHITE);
+  tft.setTextSize(1);
+  for (uint8_t i = 0; i < n; i++)
+  {
+    lineTime(schedule_time[i], schedule_time[i + 1]);
+    tft.fillRect(ta, 80 + i * 5, tb , 5, _BLUE);
+  }
+}
+void tft_draw_auto() {
+  tft.drawLine(114, map(t[22], 0, 40, 100, 42), 119, map(t[23], 0, 40, 100, 42), _BLACK);
+  sensor_shift();
+  for (uint8_t i = 0; i < 23; i++)
+  {
+    tft.drawLine(4 + i * 5, map(t[i + 1], 0, 40, 100, 42), 8 + i * 5, map(t[i + 2], 0, 40, 100, 42), _BLACK);
+    tft.drawLine(4 + i * 5, map(t[i], 0, 40, 100, 42), 8 + i * 5, map(t[i + 1], 0, 40, 100, 42), _BLUE);
+  }
+}
+
+

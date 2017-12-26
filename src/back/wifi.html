@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>EagleMON-T</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, user-scalable=no" />
+    <meta name="description" content="EagleMON-T">
+    <meta name="author" content="EagleMON">
+    <meta name="theme-color" content="#000000" />
+    <link rel="stylesheet" href="w3.css">
+    <link rel="stylesheet" href="spinner.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+</head>
+
+<body class="w3-content" style="max-width:1024px;min-width:350px">
+    <div class="cssload-thecube" data-bind="visible: !initialised()">
+        <div class="cssload-cube cssload-c1"></div>
+        <div class="cssload-cube cssload-c2"></div>
+        <div class="cssload-cube cssload-c4"></div>
+        <div class="cssload-cube cssload-c3"></div>
+    </div>
+    <br>
+    <div class="w3-card-4 w3-light-grey" data-bind="visible: initialised" style="display: none">
+        <header class="w3-blue">
+            <div class="w3-container">
+                <div class="w3-right w3-margin">
+                    <img src="logo.png" class="w3-rounded" alt="logo" width="100px" height="100px">
+                </div>
+                <div class="w3-left">
+                    <h1>Eagle<span class="w3-text-orange">MON</span></h1>
+                    <h3>WiFi Room Thermostat Link</h3>
+                </div>
+            </div>
+        </header>
+        <div class="w3-bar w3-border">
+            <a href="index.html" class="w3-bar-item w3-button w3-border-right">Home</a>
+            <a href="emon.html" class="w3-bar-item w3-button w3-border-right">E-MON</a>
+            <a href="mqtt.html" class="w3-bar-item w3-button w3-border-right">MQTT</a>
+            <a href="ntp.html" class="w3-bar-item w3-button w3-border-right">NTP</a>
+            <a href="admin.html" class="w3-bar-item w3-button w3-border-right">Access</a>
+            <a href="status.html" class="w3-bar-item w3-button w3-border-right">Status</a>
+        </div>
+        <!--------------------------------------------------------------------------------------------------->
+        <div class="w3-row-padding">
+            <div class="w3-center">
+                <h4 class="w3-wide w3-opacity">WiFi Network</h4>
+            </div>
+            <div id="client-view" data-bind="visible: status.isWifiClient()">
+                <div class="w3-card-4 w3-round-xlarge">
+                    <div class="w3-container w3-center">
+                        <table class="w3-table">
+                            <tr>
+                                <th style="width:25%">SSID</th>
+                                <th style="width:75%">RSSI</th>
+                            </tr>
+                            <tbody id="sta-ssid">
+                                <tr>
+                                    <td style="width:25%"><span data-bind="text: status.c_ssid()"></span></td>
+                                    <td style="width:75%">
+                                        <div class="w3-light-grey">
+                                            <div class="w3-container w3-green w3-center" data-bind="style:{width:  calcDBM(status.c_srssi())+'%'}"><span data-bind="text: status.c_srssi()"></span>dBm</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="w3-container w3-center">
+                        <button id="apoff" data-bind="visible: status.isWifiAccessPoint" class="w3-button w3-block w3-red">Turn off Access Point</button>
+                    </div>
+                    <br>
+                </div>
+            </div>
+            <!-------------------------------------------------------------------------------------------------------------------------------------------------------------->
+            <div id="ap-view" data-bind="visible: !status.isWifiClient() &amp;&amp; !wifiConnecting()">
+                <div class="w3-card-4 w3-round-xlarge">
+                    <div class="w3-container w3-center">
+                        <table class="w3-table">
+                            <tr>
+                                <th style="width:5%">#</th>
+                                <th style="width:25%">Network</th>
+                                <th style="width:70%">RSSI</th>
+                            </tr>
+                            <tbody id="networks" data-bind="foreach: status.networks">
+                                <tr>
+                                    <td><input type='radio' class='networkcheckbox' data-bind="checkedValue: $data, checked: $root.config.ssid"></td>
+                                    <td><span data-bind="text: $data"></span></td>
+                                    <td>
+                                        <div class="w3-light-blue">
+                                            <div class="w3-container w3-blue w3-center" data-bind="style:{width:  (100+$root.status.rssi()[$index()])+'%'}">
+                                                <span data-bind="text: $root.status.rssi()[$index()]"></span>dBm
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="w3-row-padding">
+                            <div class="w3-half">
+                                <label class="w3-text-blue w3-left">Passkey:</label>
+                                <input class="w3-input w3-border w3-animate-input w3-hover-blue" type="text" data-bind="textInput: config.pass">
+                            </div>
+                            <div class="w3-half">
+                                <label class="w3-text-blue">&nbsp;</label>
+                                <button data-bind="click: saveNetwork, text: (saveNetworkFetching() ? 'Saving' : (saveNetworkSuccess() ? 'Saved' : 'Connect')), disable: saveAdminFetching" class="w3-button w3-block w3-green">Connect</button>
+                            </div>
+                        </div>
+                    </div>
+                    <br>
+                </div>
+                <div class="w3-panel w3-red" data-bind="visible: wifiConnecting">
+                    <p>Connecting to WiFi Network...Please wait 10s</p>
+                </div>
+            </div>
+            <!-------------------------------------------------------------------------------------------------------------------------------------------------------------->
+            <div class="w3-row w3-margin-bottom w3-margin-top">
+                <div class="w3-half">
+                    <div class="w3-card-4 w3-round-xlarge">
+                        <div class="w3-container w3-center">
+                            <h5>IP Address:&nbsp;<span data-bind="text: status.ipaddress()"></span></h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="w3-half">
+                    <div class="w3-card-4 w3-round-xlarge">
+                        <div class="w3-container w3-center">
+                            <h5>MODE:&nbsp;<span id="mode" data-bind="text: status.fullMode"></span></h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="w3-blue w3-center">
+            <h6>Powered by <a href="http://eaglemon.com">Eagle<span class="w3-text-orange">MON</span></a></h6>
+        </div>
+    </div>
+</body>
+<script src="lib.js" type="text/javascript"></script>
+<script src="config.js" type="text/javascript"></script>
+
+</html>
