@@ -17,7 +17,8 @@ unsigned long loop_timer = -1;
 
 void lcd_showClock(void);
 void lcd_showCT(float ct);
-void  lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y);
+void lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y);
+void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y);
 
 
 void tftConsole(String a, String b)
@@ -25,18 +26,18 @@ void tftConsole(String a, String b)
 
 }
 
-void tft_init(void)
+void lcd_init(void)
 {
   ucg.begin(UCG_FONT_MODE_TRANSPARENT);
   ucg.clearScreen();
 }
 
-void tft_update(void)
+void lcd_update(void)
 {
 
 }
 
-void tft_loop(uint8_t screen)
+void lcd_loop(uint8_t screen)
 {
   switch (screen) {
     case  _M_CLOCK:
@@ -75,7 +76,8 @@ void tft_loop(uint8_t screen)
         //DINAMIC
         if ((millis() - loop_timer) > 1000) {
           lcd_showCT(ct);
-          lcd_drawBar(40, "C", 100, 100, 14, 120);
+          lcd_drawBar(ct, "C", 100, 100, 14, 120);
+          lcd_drawIPbox(ntp_ip, 14, 135);
           loop_timer = millis();
         }
       }
@@ -163,21 +165,35 @@ void  lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, ui
   tmpVal = value;
   if (tmpVal < 0)
     tmpVal = 100 + tmpVal;
-  b_size = t_size * tmpVal / range;
+  b_size = (t_size-2) * tmpVal / range;
 
   if (b_size > t_size)
     b_size = t_size;
-
+  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  ucg.drawBox(x, y, t_size, 11);
   ucg_SetColor(ucg.getUcg(), 0, 100, 100, 100);
-  ucg.drawBox(x, y, t_size, 9);
+  ucg.drawBox(x+1+b_size, y+1, t_size-2-b_size, 9);
   ucg_SetColor(ucg.getUcg(), 0, 0, 0, 255);
-  ucg.drawBox(x, y, b_size, 9);
+  ucg.drawBox(x+1, y+1, b_size, 9);
   ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
   tmpStr = value;
   tmpStr += unit;
   ucg_SetFont(ucg.getUcg(), ucg_font_courB08_tr);
-  ucg.setPrintPos(x + (t_size - tmpStr.length() * 4) / 2, y + 8);
+  ucg.setPrintPos(x + (t_size - tmpStr.length() * 6) / 2, y + 9);
   ucg.print(tmpStr);
-  //  drawRect(x, y, t_size, 9, _YELLOW);
+}
+void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  char *temp = "";
+  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  ucg.drawBox(x, y, 100, 11);
+    ucg_SetColor(ucg.getUcg(), 0, 0,0, 0);
+  ucg.drawBox(x+1, y+1, 98, 9);
+  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  sprintf(temp, "%03d.%03d.%03d.%03d", value[0], value[1], value[2], value[3]);
+  ucg_SetFont(ucg.getUcg(), ucg_font_courB08_tr);
+  ucg.setPrintPos(x+5, y + 9);
+  ucg.print(temp);
 }
 

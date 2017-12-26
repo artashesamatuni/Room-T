@@ -19,15 +19,17 @@ void setup() {
 #ifdef DEBUG_SERIAL1
   Serial1.begin(115200);
 #endif
+  DEBUG.println();
   console("SERIAL", String(ESP.getChipId()));
   console("FIRMWARE", currentfirmware);
-  config_load_settings();
-  tft_init();
+  console("FS",(SPIFFS.begin())? "OK" : "FAIL");
+  console("Config",(config_load_settings())? "OK" : "FAIL");
+  lcd_init();
   console("Sensors", (sensor_init()) ? "OK" : "FAIL");
   wifi_setup();
   console("NTP", (ntp_setup()) ? "OK" : "FAIL");
   web_server_setup();
-  tft_update();
+  lcd_update();
   scr_pos = _M_HOME;
   menu_open = false;
 }
@@ -38,7 +40,7 @@ void setup() {
 void loop()
 {
   key_loop();
-  tft_loop(scr_pos);
+  lcd_loop(scr_pos);
   sensor_loop();
   web_server_loop();
   wifi_loop();

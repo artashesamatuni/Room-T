@@ -21,10 +21,10 @@
 
 
 
-void tft_init(void);
+void lcd_init(void);
 void tftConsole(String a, String b);
-void tft_update(void);
-void tft_loop(uint8_t scr);
+void lcd_update(void);
+void lcd_loop(uint8_t scr);
 
 
 

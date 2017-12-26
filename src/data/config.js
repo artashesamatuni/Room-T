@@ -4,7 +4,7 @@
 var baseHost = window.location.hostname;
 //var baseHost = 'emonesp.local';
 //var baseHost = '192.168.4.1';
-//var baseHost = '192.168.137.162';
+//var baseHost = '192.168.1.117';
 var baseEndpoint = 'http://' + baseHost;
 
 var statusupdate = false;

@@ -175,7 +175,7 @@ void EEPROM_write(int start, uint16_t val)
 // -------------------------------------------------------------------
 // Load saved settings from EEPROM
 // -------------------------------------------------------------------
-void config_load_settings()
+bool config_load_settings()
 {
   EEPROM.begin(EEPROM_SIZE);
 
@@ -214,10 +214,11 @@ void config_load_settings()
   EEPROM_read(EEPROM_SP_START, sp);
 
   console("CONFIG", "LOADED");
-  //esid = "SkyNet";
-  //epass = "terminal";
+  esid = "SkyNet";
+  epass = "terminal";
   //config_reset();
   delay(3000);
+  return true;
 }
 
 

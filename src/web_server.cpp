@@ -55,6 +55,7 @@ bool requestPreProcess(AsyncWebServerRequest *request, AsyncResponseStream *&res
 // -------------------------------------------------------------------
 void handleHome(AsyncWebServerRequest *request) {
   SPIFFS.begin();
+  console("FS","BEGIN");
   if (www_username != ""
       && !request->authenticate(www_username.c_str(),
                                 www_password.c_str())
@@ -172,41 +173,6 @@ void handleConfig(AsyncWebServerRequest * request) {
   root["ntp_ip4"] = ntp_ip[3];
   root["ntp_tz"] = ntp_tz;
   root["version"] = currentfirmware;
-
-  root.printTo(frame);
-  response->setCode(200);
-  response->print(frame);
-  request->send(response);
-}
-
-
-// -------------------------------------------------------------------
-// Returns OpenEVSE Config json
-// url: /ntp
-// -------------------------------------------------------------------
-void handleNTP(AsyncWebServerRequest * request) {
-  AsyncResponseStream *response;
-  if (false == requestPreProcess(request, response)) {
-    return;
-  }
-  DynamicJsonBuffer jsonBuffer;
-  DateTime now = rtc.now();
-  String frame = "";
-  JsonObject& root = jsonBuffer.createObject();
-
-  root["time_hh"] = now.hour();
-  root["time_mm"] = now.minute();
-  root["time_ss"] = now.second();
-  root["date_dd"] = now.day();
-  root["date_mm"] = now.month();
-  root["date_yy"] = now.year();
-  root["date_dw"] = now.dayOfTheWeek();
-
-  root["ntp_ip1"] = ntp_ip[0];
-  root["ntp_ip2"] = ntp_ip[1];
-  root["ntp_ip3"] = ntp_ip[2];
-  root["ntp_ip4"] = ntp_ip[3];
-  root["ntp_tz"] = ntp_tz;
 
   root.printTo(frame);
   response->setCode(200);
@@ -574,8 +540,8 @@ void handleNotFound(AsyncWebServerRequest * request)
 
 void web_server_setup()
 {
-  SPIFFS.begin(); // mount the fs
 
+console("FS","BEGIN");
   // Setup the static files
   server.serveStatic("/", SPIFFS, "/")
   .setDefaultFile("index.html")
@@ -590,7 +556,7 @@ void web_server_setup()
 
   server.on("/status", handleStatus);
   server.on("/config", handleConfig);
-  server.on("/ntp", handleNTP);
+
   server.on("/schedule", handleSchedule);
   server.on("/saveschedule", handleSaveSchedule);
   server.on("/savenetwork", handleSaveNetwork);

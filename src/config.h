@@ -59,7 +59,7 @@ extern bool  update_shed;
 // -------------------------------------------------------------------
 // Load saved settings
 // -------------------------------------------------------------------
-extern void config_load_settings();
+extern bool config_load_settings();
 
 void config_save_sp();
 // -------------------------------------------------------------------
