@@ -28,7 +28,7 @@ void setup() {
   console("NTP", (ntp_setup()) ? "OK" : "FAIL");
   web_server_setup();
   tft_update();
-  scr_pos = _M_CLOCK;
+  scr_pos = _M_HOME;
   menu_open = false;
 }
 

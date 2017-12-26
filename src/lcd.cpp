@@ -17,6 +17,7 @@ unsigned long loop_timer = -1;
 
 void lcd_showClock(void);
 void lcd_showCT(float ct);
+void  lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y);
 
 
 void tftConsole(String a, String b)
@@ -26,7 +27,7 @@ void tftConsole(String a, String b)
 
 void tft_init(void)
 {
-  ucg.begin(UCG_FONT_MODE_SOLID);
+  ucg.begin(UCG_FONT_MODE_TRANSPARENT);
   ucg.clearScreen();
 }
 
@@ -74,6 +75,7 @@ void tft_loop(uint8_t screen)
         //DINAMIC
         if ((millis() - loop_timer) > 1000) {
           lcd_showCT(ct);
+          lcd_drawBar(40, "C", 100, 100, 14, 120);
           loop_timer = millis();
         }
       }
@@ -152,3 +154,30 @@ void lcd_showClock(void) {
     ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
   ucg_DrawString(ucg.getUcg(), 58, 88, 0, ":");
 }
+
+void  lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y) {
+  uint8_t b_size;
+  int16_t tmpVal;
+  String tmpStr = "";
+  
+  tmpVal = value;
+  if (tmpVal < 0)
+    tmpVal = 100 + tmpVal;
+  b_size = t_size * tmpVal / range;
+
+  if (b_size > t_size)
+    b_size = t_size;
+
+  ucg_SetColor(ucg.getUcg(), 0, 100, 100, 100);
+  ucg.drawBox(x, y, t_size, 9);
+  ucg_SetColor(ucg.getUcg(), 0, 0, 0, 255);
+  ucg.drawBox(x, y, b_size, 9);
+  ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
+  tmpStr = value;
+  tmpStr += unit;
+  ucg_SetFont(ucg.getUcg(), ucg_font_courB08_tr);
+  ucg.setPrintPos(x + (t_size - tmpStr.length() * 4) / 2, y + 8);
+  ucg.print(tmpStr);
+  //  drawRect(x, y, t_size, 9, _YELLOW);
+}
+
