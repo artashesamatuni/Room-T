@@ -214,8 +214,8 @@ bool config_load_settings()
   EEPROM_read(EEPROM_SP_START, sp);
 
   console("CONFIG", "LOADED");
-  esid = "SkyNet";
-  epass = "terminal";
+  //esid = "SkyNet";
+  //epass = "terminal";
   //config_reset();
   delay(3000);
   return true;

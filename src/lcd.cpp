@@ -2,6 +2,7 @@
 #include "esp.h"
 #include "config.h"
 #include "ntp.h"
+#include "keypad.h"
 
 
 Ucglib_ST7735_18x128x160_HWSPI ucg(TFT_DC, TFT_CS, TFT_RST);
@@ -19,6 +20,8 @@ void lcd_showClock(void);
 void lcd_showCT(float ct);
 void lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y);
 void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y);
+void lcd_draw_menu(void);
+uint8_t menu_scan(void);
 
 
 void tftConsole(String a, String b)
@@ -34,7 +37,7 @@ void lcd_init(void)
 
 void lcd_update(void)
 {
-
+  draw = true;
 }
 
 void lcd_loop(uint8_t screen)
@@ -85,6 +88,8 @@ void lcd_loop(uint8_t screen)
     default:
       break;
   }
+  menu_scan();
+  lcd_draw_menu();
 }
 void lcd_showCT(float ct) {
   char *tmpStr = "";
@@ -161,20 +166,20 @@ void  lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, ui
   uint8_t b_size;
   int16_t tmpVal;
   String tmpStr = "";
-  
+
   tmpVal = value;
   if (tmpVal < 0)
     tmpVal = 100 + tmpVal;
-  b_size = (t_size-2) * tmpVal / range;
+  b_size = (t_size - 2) * tmpVal / range;
 
   if (b_size > t_size)
     b_size = t_size;
-  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
   ucg.drawBox(x, y, t_size, 11);
   ucg_SetColor(ucg.getUcg(), 0, 100, 100, 100);
-  ucg.drawBox(x+1+b_size, y+1, t_size-2-b_size, 9);
+  ucg.drawBox(x + 1 + b_size, y + 1, t_size - 2 - b_size, 9);
   ucg_SetColor(ucg.getUcg(), 0, 0, 0, 255);
-  ucg.drawBox(x+1, y+1, b_size, 9);
+  ucg.drawBox(x + 1, y + 1, b_size, 9);
   ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
   tmpStr = value;
   tmpStr += unit;
@@ -186,14 +191,83 @@ void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y) {
   int16_t x1, y1;
   uint16_t w, h;
   char *temp = "";
-  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
   ucg.drawBox(x, y, 100, 11);
-    ucg_SetColor(ucg.getUcg(), 0, 0,0, 0);
-  ucg.drawBox(x+1, y+1, 98, 9);
-  ucg_SetColor(ucg.getUcg(), 0, 255,255, 0);
+  ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
+  ucg.drawBox(x + 1, y + 1, 98, 9);
+  ucg_SetColor(ucg.getUcg(), 0, 255, 255, 0);
   sprintf(temp, "%03d.%03d.%03d.%03d", value[0], value[1], value[2], value[3]);
   ucg_SetFont(ucg.getUcg(), ucg_font_courB08_tr);
-  ucg.setPrintPos(x+5, y + 9);
+  ucg.setPrintPos(x + 5, y + 9);
   ucg.print(temp);
 }
 
+void lcd_draw_menu(void) {
+  String m_item[] = {"Home", "Time", "CMS","MQTT", "Thermostat", "Access", "Network", "System", "Status"};
+  bool dis = false;
+  uint8_t elements = 9;
+  if (draw)
+  {
+    if (menu_open)
+    {
+      ucg_SetColor(ucg.getUcg(), 0, 0, 255, 0);
+      ucg.drawBox(0, 0, 128, 160);
+      ucg_SetFont(ucg.getUcg(), ucg_font_courB08_tr);
+      for (uint8_t i = 0; i < elements; i++)
+      {
+        if (i == menu_pos)
+        {
+          ucg_SetColor(ucg.getUcg(), 0, 100, 100, 100);
+          ucg.drawBox(0, i * (160/elements), 128, 20);
+          ucg_SetColor(ucg.getUcg(), 0, 255, 255, 255);
+        }
+        else
+        {
+          ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
+        }
+        ucg.setPrintPos(2, (160/elements)-3 + i * (160/elements));
+        ucg.print(m_item[i]);
+      }
+      draw = false;
+    }
+  }
+}
+
+uint8_t menu_scan(void) {
+  if (keystatus == _KEY_OK)
+  {
+    if (!menu_open)
+    {
+      menu_open = true;
+      menu_pos = 0;
+      draw = true;
+    }
+    else
+    {
+      menu_open = false;
+      draw = true;
+      scr_pos = menu_pos;
+    }
+    return menu_pos;
+  }
+  if (keystatus == _KEY_LEFT)
+  {
+    draw = true;
+    if (menu_pos > 0)
+      menu_pos--;
+    else
+      menu_pos = 7;
+    return menu_pos;
+  }
+  if (keystatus == _KEY_RIGHT)
+  {
+    draw = true;
+    if (menu_pos < 7)
+      menu_pos++;
+    else
+      menu_pos = 0;
+    return menu_pos;
+  }
+  draw = false;
+  return menu_pos;
+}
