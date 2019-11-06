@@ -82,9 +82,9 @@ void handleStatus(AsyncWebServerRequest *request) {
   }
   SPIFFS.info(fs_info);
   DateTime now = rtc.now();
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(1024);
   String frame = "";
-  JsonObject& root = jsonBuffer.createObject();
+  JsonObject& root = doc.as<JsonObject>();
   if (wifi_mode == WIFI_MODE_STA)
   {
     root["mode"] = "STA";
@@ -145,9 +145,9 @@ void handleConfig(AsyncWebServerRequest * request) {
   if (false == requestPreProcess(request, response)) {
     return;
   }
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument doc(1024);
   String frame = "";
-  JsonObject& root = jsonBuffer.createObject();
+  JsonObject root = doc.as<JsonObject>();
   root["ssid"] = esid;
   //root["pass"] = epass;
   root["emon_server"] = emon_server;
@@ -202,7 +202,7 @@ void handleSchedule(AsyncWebServerRequest *request) {
   std::unique_ptr<char[]> buf(new char[size]);
   configFile.readBytes(buf.get(), size);
   configFile.close();
-  DynamicJsonBuffer jsonBuffer;
+  DynamicJsonDocument jsonBuffer(1024);
   JsonObject& root = jsonBuffer.parseObject(buf.get());
   if (!root.success()) {
     console("Failed to parse config file", "ERR");
@@ -225,7 +225,7 @@ void handleSaveSchedule(AsyncWebServerRequest *request) {
   if (false == requestPreProcess(request, response, "text/plain")) {
     return;
   }
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonDocument<200> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   JsonArray& sp_time = root.createNestedArray("sp_time");
   JsonArray& sp = root.createNestedArray("sp");
@@ -611,4 +611,3 @@ void web_server_loop() {
     ESP.reset();
   }
 }
-
