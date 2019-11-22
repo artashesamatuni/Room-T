@@ -82,9 +82,8 @@ void handleStatus(AsyncWebServerRequest *request) {
   }
   SPIFFS.info(fs_info);
   DateTime now = rtc.now();
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument  root(1024);
   String frame = "";
-  JsonObject& root = doc.as<JsonObject>();
   if (wifi_mode == WIFI_MODE_STA)
   {
     root["mode"] = "STA";
@@ -97,8 +96,8 @@ void handleStatus(AsyncWebServerRequest *request) {
   {
     root["mode"] = "STA+AP";
   }
-  JsonArray& networks = root.createNestedArray("networks");
-  JsonArray& rssi = root.createNestedArray("rssi");
+  JsonArray networks = root.createNestedArray("networks");
+  JsonArray rssi = root.createNestedArray("rssi");
 
   for (uint8_t i = 0; i < ap_cnt; i++)
   {
@@ -130,7 +129,7 @@ void handleStatus(AsyncWebServerRequest *request) {
   root["date_yy"] = now.year();
   root["date_dw"] = now.dayOfTheWeek();
 
-  root.printTo(frame);
+  serializeJson(root, frame);
   response->setCode(200);
   response->print(frame);
   request->send(response);
@@ -145,9 +144,8 @@ void handleConfig(AsyncWebServerRequest * request) {
   if (false == requestPreProcess(request, response)) {
     return;
   }
-  DynamicJsonDocument doc(1024);
+  DynamicJsonDocument root(1024);
   String frame = "";
-  JsonObject root = doc.as<JsonObject>();
   root["ssid"] = esid;
   //root["pass"] = epass;
   root["emon_server"] = emon_server;
@@ -174,7 +172,7 @@ void handleConfig(AsyncWebServerRequest * request) {
   root["ntp_tz"] = ntp_tz;
   root["version"] = currentfirmware;
 
-  root.printTo(frame);
+  serializeJson(root, frame);
   response->setCode(200);
   response->print(frame);
   request->send(response);
@@ -203,13 +201,13 @@ void handleSchedule(AsyncWebServerRequest *request) {
   configFile.readBytes(buf.get(), size);
   configFile.close();
   DynamicJsonDocument jsonBuffer(1024);
-  JsonObject& root = jsonBuffer.parseObject(buf.get());
-  if (!root.success()) {
+  DeserializationError error = deserializeJson(jsonBuffer, buf.get());
+  if (error) {
     console("Failed to parse config file", "ERR");
     return;
   }
   String frame = "";
-  root.printTo(frame);
+  serializeJson(jsonBuffer, frame);
   response->setCode(200);
   response->print(frame);
   request->send(response);
@@ -225,10 +223,9 @@ void handleSaveSchedule(AsyncWebServerRequest *request) {
   if (false == requestPreProcess(request, response, "text/plain")) {
     return;
   }
-  StaticJsonDocument<200> jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& sp_time = root.createNestedArray("sp_time");
-  JsonArray& sp = root.createNestedArray("sp");
+  DynamicJsonDocument root(1024);
+  JsonArray sp_time = root.createNestedArray("sp_time");
+  JsonArray sp = root.createNestedArray("sp");
 
   int args = request->args();
   root["n"] = args / 2;
@@ -244,7 +241,7 @@ void handleSaveSchedule(AsyncWebServerRequest *request) {
     return;
   }
 
-  root.printTo(configFile);
+  serializeJson(root, configFile);
 
   response->setCode(200);
   response->print("saved");

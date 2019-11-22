@@ -5,8 +5,8 @@
 #include <EEPROM.h>                   // Save config settings
 
 // Wifi Network Strings
-String esid = "";
-String epass = "";
+String esid = "SkyNet";
+String epass = "terminal";
 
 // Web server authentication (leave blank for none)
 String www_username = "";
@@ -346,4 +346,3 @@ void console(String a, String b)
   DEBUG.println("]");
 
 }
-
