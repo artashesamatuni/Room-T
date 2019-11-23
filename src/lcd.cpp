@@ -7,7 +7,7 @@
 
 Ucglib_ST7735_18x128x160_HWSPI ucg(TFT_DC, TFT_CS, TFT_RST);
 boolean draw = false;
-float c_t;
+float c_t, o_t;
 uint8_t c_hh;
 uint8_t c_mm;
 uint8_t c_dw;
@@ -17,7 +17,9 @@ String dow[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 unsigned long loop_timer = -1;
 
 void lcd_showClock(void);
+void update_t(float t, bool erase);
 void lcd_showCT(float ct);
+void lcd_showDT(float ct, float ot);
 void lcd_drawBar(int16_t value, String unit, uint16_t range, uint8_t t_size, uint8_t x, uint8_t y);
 void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y);
 void lcd_draw_menu(void);
@@ -43,6 +45,19 @@ void lcd_update(void)
 void lcd_loop(uint8_t screen)
 {
   switch (screen) {
+    case  _M_NET:
+      if (!menu_open) {
+        //STATIC
+        if (draw) {
+          draw = false;
+        }
+        //DINAMIC
+        if ((millis() - loop_timer) > 1000) {
+          lcd_drawIPbox(ntp_ip, 14, 135);
+          loop_timer = millis();
+        }
+      }
+      break;
     case  _M_CLOCK:
       if (!menu_open) {
         //STATIC
@@ -64,7 +79,7 @@ void lcd_loop(uint8_t screen)
         }
         //DINAMIC
         if ((millis() - loop_timer) > 1000) {
-          lcd_showCT(ct);
+          lcd_showDT(ct, ot);
           loop_timer = millis();
         }
       }
@@ -91,6 +106,31 @@ void lcd_loop(uint8_t screen)
   menu_scan();
   lcd_draw_menu();
 }
+
+
+void update_t(float t, bool erase)
+{
+  char *tmpStr = "";
+  int8_t d;
+  uint8_t f;
+  if (erase)
+  {
+    ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
+  }
+  else
+  {
+    ucg_SetColor(ucg.getUcg(), 0, 255, 255, 255);
+  }
+  d = (int8_t)t;
+  f = (uint8_t)abs((t - d) * 100);
+  sprintf(tmpStr, "%02d", d);
+  ucg_SetFont(ucg.getUcg(), ucg_font_logisoso30_tn);
+  ucg_DrawString(ucg.getUcg(), 25, 30, 0, tmpStr);
+  sprintf(tmpStr, "%02d", f);
+  ucg_SetFont(ucg.getUcg(), ucg_font_logisoso16_tn);
+  ucg_DrawString(ucg.getUcg(), 63, 30, 0, tmpStr);
+}
+
 void lcd_showCT(float ct) {
   char *tmpStr = "";
   if (c_t != ct)
@@ -120,6 +160,45 @@ void lcd_showCT(float ct) {
     c_t = ct;
   }
 }
+
+void lcd_showDT(float ct, float ot) {
+  char *tmpStr = "";
+  if (c_t != ct)
+  {
+    ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
+    int8_t d = (int8_t)c_t;
+    uint8_t f = (uint8_t)abs((c_t - d) * 100);
+    sprintf(tmpStr, "%02d", d);
+    ucg_SetFont(ucg.getUcg(), ucg_font_logisoso30_tn);
+    ucg_DrawString(ucg.getUcg(), 25, 90, 0, tmpStr);
+    sprintf(tmpStr, "%02d", f);
+    ucg_SetFont(ucg.getUcg(), ucg_font_logisoso16_tn);
+    ucg_DrawString(ucg.getUcg(), 63, 90, 0, tmpStr);
+    ucg_SetColor(ucg.getUcg(), 0, 255, 255, 255);
+    d = (int8_t)ct;
+    f = (uint8_t)abs((ct - d) * 100);
+    sprintf(tmpStr, "%02d", d);
+    ucg_SetFont(ucg.getUcg(), ucg_font_logisoso30_tn);
+    ucg_DrawString(ucg.getUcg(), 25, 90, 0, tmpStr);
+    sprintf(tmpStr, "%02d", f);
+    ucg_SetFont(ucg.getUcg(), ucg_font_logisoso16_tn);
+    ucg_DrawString(ucg.getUcg(), 63, 90, 0, tmpStr);
+    ucg_SetFont(ucg.getUcg(), ucg_font_logisoso30_tr);
+    ucg_DrawString(ucg.getUcg(), 83, 90, 0, "C");
+    ucg_DrawCircle(ucg.getUcg(), 78, 64, 3, 15);
+    ucg_DrawCircle(ucg.getUcg(), 78, 64, 4, 15);
+    c_t = ct;
+  }
+  if (o_t != ot)
+  {
+    update_t(o_t, true);
+    update_t(ot, false);
+    o_t = ot;
+  }
+}
+
+
+
 
 void lcd_showClock(void) {
   DateTime now = rtc.now();
@@ -203,7 +282,7 @@ void lcd_drawIPbox(uint8_t *value, uint8_t x, uint8_t y) {
 }
 
 void lcd_draw_menu(void) {
-  String m_item[] = {"Home", "Time", "CMS","MQTT", "Thermostat", "Access", "Network", "System", "Status"};
+  String m_item[] = {"Home", "Time", "CMS", "MQTT", "Thermostat", "Access", "Network", "System", "Status"};
   bool dis = false;
   uint8_t elements = 9;
   if (draw)
@@ -218,14 +297,14 @@ void lcd_draw_menu(void) {
         if (i == menu_pos)
         {
           ucg_SetColor(ucg.getUcg(), 0, 100, 100, 100);
-          ucg.drawBox(0, i * (160/elements), 128, 20);
+          ucg.drawBox(0, i * (160 / elements), 128, 20);
           ucg_SetColor(ucg.getUcg(), 0, 255, 255, 255);
         }
         else
         {
           ucg_SetColor(ucg.getUcg(), 0, 0, 0, 0);
         }
-        ucg.setPrintPos(2, (160/elements)-3 + i * (160/elements));
+        ucg.setPrintPos(2, (160 / elements) - 3 + i * (160 / elements));
         ucg.print(m_item[i]);
       }
       draw = false;

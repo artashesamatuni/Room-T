@@ -3,6 +3,7 @@
 #include "wifi.h"
 #include "ntp.h"
 #include "web_server.h"
+#include "weather.h"
 #include "emoncms.h"
 #include "mqtt.h"
 #include "lcd.h"
@@ -28,9 +29,11 @@ void setup() {
   console("Sensors", (sensor_init()) ? "OK" : "FAIL");
   wifi_setup();
   console("NTP", (ntp_setup()) ? "OK" : "FAIL");
+  weather_client_setup();
   web_server_setup();
+
   lcd_update();
-  scr_pos = _M_HOME;
+  scr_pos = _M_TEMP;
   menu_open = false;
 }
 
@@ -44,6 +47,7 @@ void loop()
   sensor_loop();
   web_server_loop();
   wifi_loop();
+  weather_client_loop();
 
   String input = "";
   input = "Current-t:" + String(ct) + ",Target-t:" + String(sp);
@@ -66,5 +70,3 @@ void loop()
     }
   }
 } // end loop
-
-

@@ -5,8 +5,8 @@
 #include <EEPROM.h>                   // Save config settings
 
 // Wifi Network Strings
-String esid = "SkyNet";
-String epass = "terminal";
+String esid = "";
+String epass = "";
 
 // Web server authentication (leave blank for none)
 String www_username = "";
@@ -34,6 +34,7 @@ int8_t ntp_tz;
 uint8_t ntp_ip[4] = {129, 6, 15, 28};
 
 //Temperature
+float    ot;
 float    ct;
 uint8_t  sp;
 uint8_t keystatus;
@@ -214,8 +215,8 @@ bool config_load_settings()
   EEPROM_read(EEPROM_SP_START, sp);
 
   console("CONFIG", "LOADED");
-  //esid = "SkyNet";
-  //epass = "terminal";
+  esid = "SkyNet";
+  epass = "terminal";
   //config_reset();
   delay(3000);
   return true;

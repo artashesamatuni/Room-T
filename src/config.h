@@ -40,6 +40,7 @@ extern int8_t ntp_tz;
 extern uint8_t ntp_ip[];
 
 //Temperature
+extern float    ot;
 extern float    ct;
 extern uint8_t  sp;
 
@@ -94,4 +95,3 @@ extern void config_save_wifi(String qsid, String qpass);
 extern void config_reset();
 void console(String a, String b);
 #endif // _EMONESP_CONFIG_H
-
